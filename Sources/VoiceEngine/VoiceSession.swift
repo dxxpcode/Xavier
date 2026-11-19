@@ -445,9 +445,14 @@ final class VoiceSession: NSObject, ObservableObject {
         followUpTimeoutTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(8))
             guard let self else { return }
-            if case .listening = self.state,
-               self.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                self.cancelListening()
+                if case .listening = self.state {
+                if self.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    self.cancelListening()
+                } else {
+                    // The user started a follow-up but paused: end audio so the
+                    // recognizer delivers what it has instead of recording on.
+                    self.finishListening()
+                }
             }
         }
     }
