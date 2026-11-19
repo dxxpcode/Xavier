@@ -79,8 +79,19 @@ final class AppState: ObservableObject {
             self?.lastExchange = Exchange(question: question, answer: response)
             voice?.speak(response)
         }
-        orchestrator.onAssistantFailed = { [weak voice] in
+        orchestrator.onAssistantFailed = { [weak self, weak voice, weak orchestrator] in
             voice?.setIdle()
+            // Resolve a still-pending exchange so the card stops spinning.
+            guard let exchange = self?.lastExchange, exchange.answer == nil else { return }
+            let question = orchestrator?.messages.last(where: { $0.role == .user })?.content
+                ?? exchange.question
+            let answer: String
+            if let detail = orchestrator?.lastError, !detail.isEmpty {
+                answer = "Something went wrong: \(detail)"
+            } else {
+                answer = "Xavier couldn't respond."
+            }
+            self?.lastExchange = Exchange(question: question, answer: answer)
         }
 
         // Endpoint changes take effect immediately, not on restart.
