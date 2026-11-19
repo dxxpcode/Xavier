@@ -132,7 +132,8 @@ final class MemoryEngine: ObservableObject {
     }
 
     private func parseExtraction(_ text: String) -> [(String, MemoryCategory)]? {
-        guard let start = text.firstIndex(of: "["), let end = text.lastIndex(of: "]") else { return nil }
+        guard let start = text.firstIndex(of: "["),
+              let end = text.lastIndex(of: "]"), start <= end else { return nil }
         let json = String(text[start...end])
         guard let data = json.data(using: .utf8),
               let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] else { return nil }
