@@ -71,8 +71,10 @@ final class AppState: ObservableObject {
             // Track the exchange's conversation for voice follow-ups —
             // typed replies trigger them too, so this must update here.
             voice?.lastExchangeConversationID = orchestrator?.conversation?.id
-            let question = self?.lastExchange?.question
-                ?? orchestrator?.messages.last(where: { $0.role == .user })?.content
+            // The question that was just answered is the latest user
+            // message — works for typed, voice, and conversation-panel sends.
+            let question = orchestrator?.messages.last(where: { $0.role == .user })?.content
+                ?? self?.lastExchange?.question
                 ?? ""
             self?.lastExchange = Exchange(question: question, answer: response)
             voice?.speak(response)
