@@ -405,16 +405,19 @@ final class VoiceSession: NSObject, ObservableObject {
         startListening()
     }
 
-    /// Text after the wake phrase in a normalized transcript, if any.
+    /// Text after the wake phrase in the raw transcript, preserving
+    /// punctuation (normalized text would mangle values like "3.5").
     private func commandAfterWakePhrase(in text: String) -> String? {
-        let normalized = normalizedWakeText(text)
-        for phrase in ["hey xavier", "a xavier"] {
-            if let range = normalized.range(of: phrase) {
-                let rest = normalized[range.upperBound...].trimmingCharacters(in: .whitespaces)
-                return rest.isEmpty ? nil : rest
-            }
+        let lower = text.lowercased()
+        guard let xavier = lower.range(of: "xavier") else { return nil }
+        let before = normalizedWakeText(String(lower[..<xavier.lowerBound]))
+        guard before == "hey" || before == "a" || before.hasSuffix(" hey") || before.hasSuffix(" a") else {
+            return nil
         }
-        return nil
+        let rest = String(text[xavier.upperBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " ,.;:!?"))
+        return rest.isEmpty ? nil : rest
     }
 
     /// Restart the wake task after the recognizer's per-task audio limit or a
