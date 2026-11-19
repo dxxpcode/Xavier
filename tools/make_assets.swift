@@ -8,7 +8,12 @@ import Foundation
 
 let whiteOnBlackPath = "/tmp/IMG_5780.png"
 let blackOnWhitePath = "/tmp/IMG_5607.png"
-let outDir = "/Users/devin/repos/Xavier/Sources/Resources/Assets.xcassets"
+// Resolve the asset catalog relative to this script so any checkout works.
+let repoRoot = URL(fileURLWithPath: #filePath)
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+let outDir = repoRoot
+    .appendingPathComponent("Sources/Resources/Assets.xcassets").path
 
 func load(_ path: String) -> NSBitmapImageRep {
     guard let img = NSImage(contentsOfFile: path),
