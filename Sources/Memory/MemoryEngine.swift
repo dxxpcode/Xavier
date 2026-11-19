@@ -42,8 +42,8 @@ final class MemoryEngine: ObservableObject {
 
     private static let sensitivePatterns: [String] = [
         #"(?i)\b(password|passwd|passphrase)\b"#,
-        #"(?i)\b(api[_-]?key|secret|token)\s*[:=]"#,
-        #"(?i)\b(sk|pk|xox[bap]|ghp|gho|sbp)_[A-Za-z0-9_\-]+"#,
+        #"(?i)\b(api[_ -]?key|secret|token|credential)s?\s*(is|was|[:=])\s*\S"#,
+        #"(?i)\b(sk|pk|xox[bap]|ghp|gho|sbp)[\-_][A-Za-z0-9_\-\.]+"#,
         #"\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}\b"#,          // card numbers
         #"(?i)\b(ssn|social security)\b"#,
         #"(?i)\b(iban|swift|routing number)\b"#,
