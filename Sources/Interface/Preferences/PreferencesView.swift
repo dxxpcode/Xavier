@@ -218,6 +218,7 @@ struct VoicePreferences: View {
                 }
             }
             .onChange(of: settings.wakeWordEnabled) { _, _ in voice.applyVoiceSettings() }
+            .onChange(of: settings.voiceFollowUpEnabled) { _, _ in voice.applyVoiceSettings() }
             Section("Input") {
                 HStack {
                     Text("Microphone permission")

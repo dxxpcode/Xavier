@@ -112,6 +112,9 @@ final class VoiceSession: NSObject, ObservableObject {
         } else {
             stopWakeListening()
         }
+        if !settings.voiceFollowUpEnabled && followUpPending {
+            cancelListening()
+        }
     }
 
     /// Toggle: idle → listening; listening → finish; speaking → interrupt.
