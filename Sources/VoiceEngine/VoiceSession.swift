@@ -61,6 +61,11 @@ final class VoiceSession: NSObject, ObservableObject {
 
     private var followUpPending = false
     private var followUpTimeoutTask: Task<Void, Never>?
+    /// Command text captured alongside the wake phrase, seeded into the new capture.
+    private var wakeCommandSeed: String?
+    /// Conversation the last delivered transcript (and its reply) belonged to;
+    /// set by AppState so follow-ups stay in the same chat.
+    var lastExchangeConversationID: String?
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -174,7 +179,7 @@ final class VoiceSession: NSObject, ObservableObject {
         }
 
         state = .listening
-        targetConversationID = conversationProvider?()
+        targetConversationID = followUpPending ? lastExchangeConversationID : conversationProvider?()
 
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
