@@ -30,8 +30,12 @@ final class VoiceSession: NSObject, ObservableObject {
     private let synthesizer = AVSpeechSynthesizer()
     private let settings: SettingsStore
 
-    /// Called with the final transcript when listening ends.
-    var onTranscript: ((String) -> Void)?
+    /// Called with the final transcript and the conversation that was active
+    /// when listening began.
+    var onTranscript: ((String, String?) -> Void)?
+    /// Returns the conversation voice input should target; set by AppState.
+    var conversationProvider: (() -> String?)?
+    private var targetConversationID: String?
     /// Called when a state transitions to error.
     var onError: ((String) -> Void)?
 
@@ -131,6 +135,7 @@ final class VoiceSession: NSObject, ObservableObject {
         }
 
         state = .listening
+        targetConversationID = conversationProvider?()
 
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
@@ -188,7 +193,7 @@ final class VoiceSession: NSObject, ObservableObject {
             state = .idle
             return
         }
-        onTranscript?(text)
+        onTranscript?(text, targetConversationID)
     }
 
     func cancelListening() {

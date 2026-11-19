@@ -81,9 +81,15 @@ final class AssistantOrchestrator: ObservableObject {
 
     // MARK: - Sending
 
-    func send(text rawText: String) {
+    /// `toConversationID` directs the message to the conversation that was
+    /// active when the input began (voice capture may outlive a chat switch).
+    func send(text rawText: String, toConversationID: String? = nil) {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isGenerating else { return }
+        if let toConversationID, toConversationID != conversation?.id,
+           let target = try? conversationStore.conversation(id: toConversationID) {
+            load(conversation: target)
+        }
         if conversation == nil { newConversation() }
         guard let conv = conversation else { return }
 

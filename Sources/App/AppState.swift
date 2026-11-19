@@ -40,9 +40,12 @@ final class AppState: ObservableObject {
         let voice = VoiceSession(settings: settings)
 
         // Wire voice → orchestrator → voice.
-        voice.onTranscript = { [weak orchestrator, weak voice] text in
+        voice.conversationProvider = { [weak orchestrator] in
+            orchestrator?.conversation?.id
+        }
+        voice.onTranscript = { [weak orchestrator, weak voice] text, conversationID in
             voice?.setProcessing()
-            orchestrator?.send(text: text)
+            orchestrator?.send(text: text, toConversationID: conversationID)
         }
         orchestrator.onAssistantCompleted = { [weak voice] response in
             voice?.speak(response)

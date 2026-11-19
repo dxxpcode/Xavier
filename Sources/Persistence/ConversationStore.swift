@@ -32,6 +32,17 @@ final class ConversationStore {
         }
     }
 
+    func conversation(id: String) throws -> Conversation? {
+        try db.query("SELECT id, title, excluded_from_memory, created_at, updated_at FROM conversations WHERE id = ?;") { s in
+            Database.bindText(s, 1, id)
+        } row: { s in
+            Conversation(id: Database.text(s, 0), title: Database.text(s, 1),
+                         excludedFromMemory: sqlite3_column_int(s, 2) != 0,
+                         createdAt: Date(timeIntervalSince1970: sqlite3_column_double(s, 3)),
+                         updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(s, 4)))
+        }.first
+    }
+
     func renameConversation(id: String, title: String) throws {
         try db.run("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?;") { s in
             Database.bindText(s, 1, title)
