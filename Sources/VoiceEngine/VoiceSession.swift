@@ -22,6 +22,8 @@ final class VoiceSession: NSObject, ObservableObject {
     @Published private(set) var permissionGranted = false
 
     private let audioEngine = AVAudioEngine()
+    private var tapInstalled = false
+    private var awaitingFinalResult = false
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
@@ -98,15 +100,18 @@ final class VoiceSession: NSObject, ObservableObject {
         stopCapture()
         liveTranscript = ""
 
+        // On-device only — audio never leaves the Mac.
+        guard onDeviceRecognitionSupported else {
+            fail("On-device speech recognition is not supported on this Mac.")
+            return
+        }
+
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let request = recognitionRequest else {
             fail("Could not create a recognition request.")
             return
         }
-        // On-device only — audio never leaves the Mac.
-        if onDeviceRecognitionSupported {
-            request.requiresOnDeviceRecognition = true
-        }
+        request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
 
         let inputNode = audioEngine.inputNode
@@ -115,6 +120,7 @@ final class VoiceSession: NSObject, ObservableObject {
             self?.recognitionRequest?.append(buffer)
             self?.updateLevel(buffer)
         }
+        tapInstalled = true
 
         audioEngine.prepare()
         do {
@@ -132,11 +138,17 @@ final class VoiceSession: NSObject, ObservableObject {
                 if let result {
                     self.liveTranscript = result.bestTranscription.formattedString
                     if result.isFinal {
-                        self.finishListening()
+                        if self.awaitingFinalResult {
+                            self.deliverTranscript()
+                        } else {
+                            self.finishListening()
+                        }
                     }
                 }
                 if let error {
-                    if case .listening = self.state {
+                    if self.awaitingFinalResult {
+                        self.deliverTranscript()
+                    } else if case .listening = self.state {
                         self.fail(error.localizedDescription)
                     }
                 }
@@ -153,34 +165,59 @@ final class VoiceSession: NSObject, ObservableObject {
         Task { @MainActor in self.audioLevel = min(1, level * 8) }
     }
 
-    /// Stops capturing and delivers the transcript.
+    /// Stops capturing audio and lets the recognizer finish buffered audio;
+    /// the final result (or a 2s-timeout fallback) is delivered to onTranscript.
     func finishListening() {
+        guard case .listening = state else { return }
+        state = .transcribing
+        awaitingFinalResult = true
+        stopAudioInput()
+        // Fallback: if no final result arrives, submit the last partial text.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self, self.awaitingFinalResult else { return }
+            self.deliverTranscript()
+        }
+    }
+
+    private func deliverTranscript() {
+        awaitingFinalResult = false
         let text = liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-        stopCapture()
+        recognitionTask = nil
         guard !text.isEmpty else {
             state = .idle
             return
         }
-        state = .transcribing
         onTranscript?(text)
     }
 
     func cancelListening() {
+        awaitingFinalResult = false
         stopCapture()
         liveTranscript = ""
         state = .idle
     }
 
-    private func stopCapture() {
+    /// Stops the engine and tap, ending the audio feed but letting the
+    /// recognizer deliver its final result.
+    private func stopAudioInput() {
         if audioEngine.isRunning {
             audioEngine.stop()
+        }
+        if tapInstalled {
             audioEngine.inputNode.removeTap(onBus: 0)
+            tapInstalled = false
         }
         recognitionRequest?.endAudio()
         recognitionRequest = nil
+        audioLevel = 0
+    }
+
+    private func stopCapture() {
+        awaitingFinalResult = false
+        stopAudioInput()
         recognitionTask?.cancel()
         recognitionTask = nil
-        audioLevel = 0
     }
 
     // MARK: - Orchestrator hooks
@@ -188,6 +225,12 @@ final class VoiceSession: NSObject, ObservableObject {
     func setProcessing() {
         if case .transcribing = state { state = .processing }
         else if case .listening = state { state = .processing }
+    }
+
+    /// Resets a stale .processing/.transcribing state after a failed exchange.
+    func setIdle() {
+        if case .processing = state { state = .idle }
+        else if case .transcribing = state { state = .idle }
     }
 
     /// Speak an assistant response (interruptible).
@@ -222,7 +265,7 @@ final class VoiceSession: NSObject, ObservableObject {
     }
 }
 
-extension VoiceSession: @preconcurrency AVSpeechSynthesizerDelegate {
+extension VoiceSession: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
             if case .speaking = self.state { self.state = .idle }

@@ -225,6 +225,7 @@ struct ConversationView: View {
     }
 
     private func send() {
+        guard !orchestrator.isGenerating else { return }
         var text = inputText
         for file in attachments {
             text += "\n\n[Attachment: \(file.name)]\n```\n\(file.preview)\n```"

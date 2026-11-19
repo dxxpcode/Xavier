@@ -86,8 +86,15 @@ final class Database {
             defer { sqlite3_finalize(stmt) }
             bind(stmt!)
             var results: [T] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                results.append(row(stmt!))
+            while true {
+                let rc = sqlite3_step(stmt)
+                if rc == SQLITE_ROW {
+                    results.append(row(stmt!))
+                } else if rc == SQLITE_DONE {
+                    break
+                } else {
+                    throw DBError.stepFailed(String(cString: sqlite3_errmsg(db)))
+                }
             }
             return results
         }

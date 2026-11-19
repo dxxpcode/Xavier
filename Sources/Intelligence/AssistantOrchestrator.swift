@@ -18,6 +18,8 @@ final class AssistantOrchestrator: ObservableObject {
 
     /// Set by the voice engine to speak assistant responses aloud.
     var onAssistantCompleted: ((String) -> Void)?
+    /// Called when an exchange fails or produces no reply, so voice can reset.
+    var onAssistantFailed: (() -> Void)?
 
     init(conversationStore: ConversationStore, memoryEngine: MemoryEngine,
          modelManager: ModelManager, provider: InferenceProvider, settings: SettingsStore) {
@@ -124,6 +126,7 @@ final class AssistantOrchestrator: ObservableObject {
         guard !model.isEmpty else {
             lastError = InferenceError.noModelSelected.localizedDescription
             appendSystemNote(InferenceError.noModelSelected.localizedDescription)
+            onAssistantFailed?()
             return
         }
         isGenerating = true
@@ -140,11 +143,11 @@ final class AssistantOrchestrator: ObservableObject {
         }
 
         let excluded = conv.excludedFromMemory
-        let memories = excluded ? [] : memoryEngine.relevantMemories(for: messages.last?.content ?? "")
+        let userText = messages.last(where: { $0.role == .user })?.content ?? ""
+        let memories = excluded ? [] : memoryEngine.relevantMemories(for: userText)
         let turns = contextBuilder.buildTurns(messages: messages.filter { $0.id != assistantMessage.id },
                                               memories: memories,
                                               memoryEnabled: settings.automaticMemoryEnabled && !excluded)
-        let userText = messages.last?.content ?? ""
 
         Task { [weak self] in
             guard let self else { return }
@@ -152,15 +155,15 @@ final class AssistantOrchestrator: ObservableObject {
             do {
                 for try await delta in provider.streamChat(model: model, messages: turns) {
                     accumulated += delta
-                    await self.updateStreaming(id: assistantMessage.id, content: accumulated)
+                    self.updateStreaming(id: assistantMessage.id, content: accumulated)
                 }
-                await self.finishExchange(messageID: assistantMessage.id, content: accumulated,
-                                          userText: userText, excluded: excluded)
+                self.finishExchange(messageID: assistantMessage.id, content: accumulated,
+                                    userText: userText, excluded: excluded)
             } catch InferenceError.cancelled {
-                await self.finishExchange(messageID: assistantMessage.id, content: accumulated,
-                                          userText: userText, excluded: excluded, interrupted: true)
+                self.finishExchange(messageID: assistantMessage.id, content: accumulated,
+                                    userText: userText, excluded: excluded, interrupted: true)
             } catch {
-                await self.failExchange(messageID: assistantMessage.id, error: error)
+                self.failExchange(messageID: assistantMessage.id, error: error)
             }
         }
     }
@@ -176,6 +179,8 @@ final class AssistantOrchestrator: ObservableObject {
         finalize(message: messages.first(where: { $0.id == messageID }), content: content, interrupted: interrupted)
         if !content.isEmpty {
             onAssistantCompleted?(content)
+        } else {
+            onAssistantFailed?()
         }
         // Memory extraction runs after the exchange completes.
         if !excluded && !content.isEmpty {
@@ -183,9 +188,11 @@ final class AssistantOrchestrator: ObservableObject {
             let provider = self.provider
             let model = modelManager.selectedModel
             let convID = conversation?.id ?? ""
-            Task {
+            Task { [weak self] in
                 await engine.extract(fromUserText: userText, assistantText: content,
-                                     conversationID: convID, provider: provider, model: model)
+                                     conversationID: convID, provider: provider, model: model) {
+                    self?.conversation?.excludedFromMemory == false
+                }
             }
         }
     }
@@ -196,6 +203,7 @@ final class AssistantOrchestrator: ObservableObject {
         lastError = message
         finalize(message: messages.first(where: { $0.id == messageID }),
                  content: "Something went wrong: \(message)", interrupted: true)
+        onAssistantFailed?()
     }
 
     private func finalize(message: ChatMessage?, content: String, interrupted: Bool) {

@@ -7,7 +7,22 @@ final class OllamaProvider: InferenceProvider, @unchecked Sendable {
 
     private let baseURL: URL
     private let session: URLSession
-    nonisolated(unsafe) private var streamTask: Task<Void, Never>?
+    nonisolated(unsafe) private var streamTasks: [UUID: Task<Void, Never>] = [:]
+    private let streamTasksLock = NSLock()
+
+    nonisolated private func addStreamTask(_ task: Task<Void, Never>) -> UUID {
+        let id = UUID()
+        streamTasksLock.lock()
+        streamTasks[id] = task
+        streamTasksLock.unlock()
+        return id
+    }
+
+    nonisolated private func removeStreamTask(_ id: UUID) {
+        streamTasksLock.lock()
+        streamTasks.removeValue(forKey: id)
+        streamTasksLock.unlock()
+    }
 
     init(baseURL: URL = URL(string: "http://localhost:11434")!) {
         self.baseURL = baseURL
@@ -103,7 +118,7 @@ final class OllamaProvider: InferenceProvider, @unchecked Sendable {
             ]
             req.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-            streamTask = Task {
+            let task = Task {
                 defer { continuation.finish() }
                 do {
                     let (bytes, resp) = try await session.bytes(for: req)
@@ -134,13 +149,18 @@ final class OllamaProvider: InferenceProvider, @unchecked Sendable {
                 }
             }
 
+            let taskID = self.addStreamTask(task)
             continuation.onTermination = { _ in
-                self.streamTask?.cancel()
+                task.cancel()
+                self.removeStreamTask(taskID)
             }
         }
     }
 
     func cancel() {
-        streamTask?.cancel()
+        streamTasksLock.lock()
+        let tasks = Array(streamTasks.values)
+        streamTasksLock.unlock()
+        tasks.forEach { $0.cancel() }
     }
 }

@@ -29,7 +29,8 @@ final class AppState: ObservableObject {
         let conversationStore = ConversationStore(db: database)
         let memoryStore = MemoryStore(db: database)
         let memoryEngine = MemoryEngine(store: memoryStore, settings: settings)
-        let provider = OllamaProvider(baseURL: URL(string: settings.ollamaBaseURL)!)
+        let baseURL = URL(string: settings.ollamaBaseURL) ?? URL(string: "http://localhost:11434")!
+        let provider = OllamaProvider(baseURL: baseURL)
         let modelManager = ModelManager(provider: provider, settings: settings)
         let orchestrator = AssistantOrchestrator(conversationStore: conversationStore,
                                                  memoryEngine: memoryEngine,
@@ -45,6 +46,9 @@ final class AppState: ObservableObject {
         }
         orchestrator.onAssistantCompleted = { [weak voice] response in
             voice?.speak(response)
+        }
+        orchestrator.onAssistantFailed = { [weak voice] in
+            voice?.setIdle()
         }
 
         self.settings = settings

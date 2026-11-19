@@ -392,7 +392,7 @@ struct AdvancedPreferences: View {
                         .frame(width: 220)
                 }
                 LabeledContent("Runtime status") {
-                    Text("\(models.status)")
+                    Text(String(describing: models.status))
                 }
             }
             Section("Diagnostics") {

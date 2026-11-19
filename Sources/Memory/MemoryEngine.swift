@@ -62,8 +62,12 @@ final class MemoryEngine: ObservableObject {
 
     /// Extracts memory candidates from a finished exchange. Runs deterministic
     /// rules for explicit user statements plus a local-model pass for subtler facts.
-    func extract(fromUserText userText: String, assistantText: String, conversationID: String, provider: InferenceProvider?, model: String) async {
-        guard settings.automaticMemoryEnabled else { return }
+    /// `allowed` is re-evaluated right before persisting so a mid-extraction
+    /// opt-out (memory toggle off, or conversation excluded) blocks pending writes.
+    func extract(fromUserText userText: String, assistantText: String, conversationID: String,
+                 provider: InferenceProvider?, model: String,
+                 allowed: @escaping () -> Bool = { true }) async {
+        guard settings.automaticMemoryEnabled, allowed() else { return }
 
         var candidates: [(content: String, category: MemoryCategory)] = []
 
@@ -110,6 +114,7 @@ final class MemoryEngine: ObservableObject {
             }
         }
 
+        guard settings.automaticMemoryEnabled, allowed() else { return }
         for (content, category) in candidates {
             let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
             guard trimmed.count > 4, trimmed.count < 500 else { continue }
@@ -152,7 +157,7 @@ final class MemoryEngine: ObservableObject {
                 return
             }
         }
-        try? store.insert(content: content, category: category, sourceConversationID: sourceConversationID)
+        _ = try? store.insert(content: content, category: category, sourceConversationID: sourceConversationID)
         reload()
     }
 
