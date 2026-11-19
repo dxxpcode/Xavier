@@ -24,12 +24,18 @@ final class MemoryEngine: ObservableObject {
         reload()
     }
 
+    /// Bumped by every deletion so a pending extraction can't resurrect
+    /// what the user just removed.
+    private var storageGeneration = 0
+
     func delete(id: String) {
+        storageGeneration += 1
         try? store.delete(id: id)
         reload()
     }
 
     func deleteAll() {
+        storageGeneration += 1
         try? store.deleteAll()
         reload()
     }
@@ -69,6 +75,7 @@ final class MemoryEngine: ObservableObject {
                  allowed: @escaping () -> Bool = { true }) async {
         guard settings.automaticMemoryEnabled, allowed() else { return }
 
+        let generation = storageGeneration
         var candidates: [(content: String, category: MemoryCategory)] = []
 
         // Explicit patterns — deterministic, high confidence.
@@ -114,7 +121,8 @@ final class MemoryEngine: ObservableObject {
             }
         }
 
-        guard settings.automaticMemoryEnabled, allowed() else { return }
+        guard settings.automaticMemoryEnabled, allowed(),
+              storageGeneration == generation else { return }
         for (content, category) in candidates {
             let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
             guard trimmed.count > 4, trimmed.count < 500 else { continue }
