@@ -159,7 +159,11 @@ final class VoiceSession: NSObject, ObservableObject {
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
 
-        installTapIfNeeded()
+        guard installTapIfNeeded() else {
+            recognitionRequest = nil
+            fail("No usable microphone input is available.")
+            return
+        }
 
         audioEngine.prepare()
         do {
@@ -197,10 +201,12 @@ final class VoiceSession: NSObject, ObservableObject {
     }
 
     /// One tap feeds both the dictation request and the wake-word request.
-    private func installTapIfNeeded() {
-        guard !tapInstalled else { return }
+    /// Returns false when the input node reports no usable format (e.g. no mic).
+    private func installTapIfNeeded() -> Bool {
+        guard !tapInstalled else { return true }
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else { return false }
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }
             self.requestLock.lock()
@@ -316,7 +322,10 @@ final class VoiceSession: NSObject, ObservableObject {
         default:
             return
         }
-        installTapIfNeeded()
+        guard installTapIfNeeded() else {
+            scheduleWakeRestart()
+            return
+        }
         audioEngine.prepare()
         do {
             try audioEngine.start()
