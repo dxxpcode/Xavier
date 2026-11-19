@@ -257,6 +257,7 @@ final class VoiceSession: NSObject, ObservableObject {
 
     private func deliverTranscript() {
         awaitingFinalResult = false
+        followUpPending = false
         let text = liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         recognitionTask = nil
         followUpTimeoutTask?.cancel()
@@ -264,14 +265,11 @@ final class VoiceSession: NSObject, ObservableObject {
             enterStandby()
             return
         }
-        if followUpPending {
-            followUpPending = false
-            // In a follow-up turn, a phrase that is just the wake word is a
-            // stray recognition, not a command.
-            if normalizedWakeText(text) == "xavier" {
-                enterStandby()
-                return
-            }
+        // In a follow-up turn, a phrase that is just the wake word is a
+        // stray recognition, not a command.
+        if normalizedWakeText(text) == "xavier" {
+            enterStandby()
+            return
         }
         onTranscript?(text, targetConversationID)
     }
