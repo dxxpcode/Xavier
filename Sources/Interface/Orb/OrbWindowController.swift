@@ -17,7 +17,8 @@ final class OrbWindowController {
     private var onOpenConversation: (() -> Void)?
     private var hideTask: Task<Void, Never>?
     private var cancellable: AnyCancellable?
-    private var escapeMonitor: Any?
+    private var escapeGlobalMonitor: Any?
+    private var escapeLocalMonitor: Any?
 
     private static let restDelay: Duration = .seconds(6)
 
@@ -95,20 +96,38 @@ final class OrbWindowController {
         hideTask = nil
     }
 
+    /// Global monitor sees keys delivered to other apps (needs Input
+    /// Monitoring trust); the local one covers Xavier-owned windows, which
+    /// global monitors never see.
     private func startEscapeMonitor() {
-        guard escapeMonitor == nil else { return }
-        escapeMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.keyCode == 53 else { return }
-            Task { @MainActor in
-                self?.appState.voiceSession.cancelListening()
-                self?.hide()
+        if escapeGlobalMonitor == nil {
+            escapeGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard event.keyCode == 53 else { return }
+                Task { @MainActor in self?.escapeIfVisible() }
+            }
+        }
+        if escapeLocalMonitor == nil {
+            escapeLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard event.keyCode == 53 else { return event }
+                guard let self, self.isVisible else { return event }
+                self.escapeIfVisible()
+                return nil
             }
         }
     }
 
     private func stopEscapeMonitor() {
-        if let monitor = escapeMonitor { NSEvent.removeMonitor(monitor) }
-        escapeMonitor = nil
+        if let monitor = escapeGlobalMonitor { NSEvent.removeMonitor(monitor) }
+        if let monitor = escapeLocalMonitor { NSEvent.removeMonitor(monitor) }
+        escapeGlobalMonitor = nil
+        escapeLocalMonitor = nil
+    }
+
+    /// Escape only dismisses the orb while it is on screen — a hidden orb
+    /// must not cancel dictation running elsewhere (e.g. the chat panel).
+    private func escapeIfVisible() {
+        guard isVisible else { return }
+        hide()
     }
 
     // MARK: - Panel setup
