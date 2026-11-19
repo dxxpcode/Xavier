@@ -413,6 +413,11 @@ final class VoiceSession: NSObject, ObservableObject {
         // Scan every occurrence — an earlier "Xavier" not preceded by hey/a
         // isn't the wake phrase (e.g. "tell Xavier: hey Xavier, open notes").
         while let xavier = lower.range(of: "xavier", range: searchStart..<lower.endIndex) {
+            // "Xavier's" is possessive, not the wake phrase — keep scanning.
+            if lower[xavier.upperBound...].first == "'" {
+                searchStart = xavier.upperBound
+                continue
+            }
             let before = normalizedWakeText(String(lower[..<xavier.lowerBound]))
             if before == "hey" || before == "a" || before.hasSuffix(" hey") || before.hasSuffix(" a") {
                 let rest = String(text[xavier.upperBound...])
