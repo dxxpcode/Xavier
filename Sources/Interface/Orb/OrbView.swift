@@ -17,7 +17,7 @@ struct OrbView: View {
         VStack(spacing: 12) {
             if let exchange = appState.lastExchange {
                 AnswerCard(exchange: exchange, onOpenConversation: onOpenConversation)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.95)))
             }
             Spacer(minLength: 0)
             orb
@@ -26,7 +26,11 @@ struct OrbView: View {
         }
         .padding(20)
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8),
+                   value: appState.lastExchange != nil)
+        .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.85),
                    value: appState.lastExchange?.answer != nil)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.82),
+                   value: controller.typeMode)
         .onChange(of: controller.typeMode) { _, mode in
             typeFieldFocused = mode
         }
@@ -107,8 +111,10 @@ struct OrbView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(.regularMaterial, in: Capsule())
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
                 .frame(maxWidth: 280)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
                 .focused($typeFieldFocused)
                 .onSubmit { controller.submitType() }
         } else {
@@ -121,7 +127,7 @@ struct OrbView: View {
                     .frame(maxWidth: 260)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.thinMaterial, in: Capsule())
+                    .background(.ultraThinMaterial, in: Capsule())
                     .onTapGesture(perform: onOpenConversation)
                     .accessibilityHint("Opens the conversation")
             }
