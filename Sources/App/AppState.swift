@@ -48,12 +48,22 @@ final class AppState: ObservableObject {
             orchestrator?.send(text: text, toConversationID: conversationID)
             voice?.lastExchangeConversationID = orchestrator?.conversation?.id
         }
-        orchestrator.onAssistantCompleted = { [weak voice] response in
+        orchestrator.onAssistantCompleted = { [weak voice, weak orchestrator] response in
+            // Track the exchange's conversation for voice follow-ups —
+            // typed replies trigger them too, so this must update here.
+            voice?.lastExchangeConversationID = orchestrator?.conversation?.id
             voice?.speak(response)
         }
         orchestrator.onAssistantFailed = { [weak voice] in
             voice?.setIdle()
         }
+
+        // Endpoint changes take effect immediately, not on restart.
+        settings.$ollamaBaseURL.dropFirst().sink { [weak provider, weak modelManager] value in
+            guard let url = URL(string: value) else { return }
+            provider?.baseURL = url
+            Task { await modelManager?.refresh() }
+        }.store(in: &cancellables)
 
         self.settings = settings
         self.provider = provider
