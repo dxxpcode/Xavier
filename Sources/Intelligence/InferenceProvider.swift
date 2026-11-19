@@ -42,7 +42,9 @@ protocol InferenceProvider: AnyObject, Sendable {
     func listModels() async throws -> [LocalModel]
     func pullModel(name: String, onProgress: @Sendable @escaping (Double, String) -> Void) async throws
     func deleteModel(name: String) async throws
-    /// Streams generated text deltas.
-    func streamChat(model: String, messages: [ChatTurn]) -> AsyncThrowingStream<String, Error>
+    /// Streams generated text deltas. Non-interruptible streams (e.g. memory
+    /// extraction) are left running by `cancel()`.
+    func streamChat(model: String, messages: [ChatTurn], interruptible: Bool) -> AsyncThrowingStream<String, Error>
+    /// Cancels interruptible streams only.
     func cancel()
 }

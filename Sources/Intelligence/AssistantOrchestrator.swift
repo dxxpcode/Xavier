@@ -153,7 +153,7 @@ final class AssistantOrchestrator: ObservableObject {
             guard let self else { return }
             var accumulated = ""
             do {
-                for try await delta in provider.streamChat(model: model, messages: turns) {
+                for try await delta in provider.streamChat(model: model, messages: turns, interruptible: true) {
                     accumulated += delta
                     self.updateStreaming(id: assistantMessage.id, content: accumulated)
                 }

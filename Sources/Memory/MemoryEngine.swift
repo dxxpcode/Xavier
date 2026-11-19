@@ -103,7 +103,7 @@ final class MemoryEngine: ObservableObject {
             let turns = [ChatTurn(role: .user, content: extractPrompt)]
             var reply = ""
             do {
-                for try await delta in provider.streamChat(model: model, messages: turns) {
+                for try await delta in provider.streamChat(model: model, messages: turns, interruptible: false) {
                     reply += delta
                 }
             } catch {

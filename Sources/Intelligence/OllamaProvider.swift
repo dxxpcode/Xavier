@@ -7,13 +7,13 @@ final class OllamaProvider: InferenceProvider, @unchecked Sendable {
 
     private let baseURL: URL
     private let session: URLSession
-    nonisolated(unsafe) private var streamTasks: [UUID: Task<Void, Never>] = [:]
+    nonisolated(unsafe) private var streamTasks: [UUID: (task: Task<Void, Never>, interruptible: Bool)] = [:]
     private let streamTasksLock = NSLock()
 
-    nonisolated private func addStreamTask(_ task: Task<Void, Never>) -> UUID {
+    nonisolated private func addStreamTask(_ task: Task<Void, Never>, interruptible: Bool) -> UUID {
         let id = UUID()
         streamTasksLock.lock()
-        streamTasks[id] = task
+        streamTasks[id] = (task, interruptible)
         streamTasksLock.unlock()
         return id
     }
@@ -106,7 +106,7 @@ final class OllamaProvider: InferenceProvider, @unchecked Sendable {
 
     // MARK: Chat
 
-    func streamChat(model: String, messages: [ChatTurn]) -> AsyncThrowingStream<String, Error> {
+    func streamChat(model: String, messages: [ChatTurn], interruptible: Bool = true) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             var req = URLRequest(url: baseURL.appendingPathComponent("api/chat"))
             req.httpMethod = "POST"
@@ -149,7 +149,7 @@ final class OllamaProvider: InferenceProvider, @unchecked Sendable {
                 }
             }
 
-            let taskID = self.addStreamTask(task)
+            let taskID = self.addStreamTask(task, interruptible: interruptible)
             continuation.onTermination = { _ in
                 task.cancel()
                 self.removeStreamTask(taskID)
@@ -159,7 +159,7 @@ final class OllamaProvider: InferenceProvider, @unchecked Sendable {
 
     func cancel() {
         streamTasksLock.lock()
-        let tasks = Array(streamTasks.values)
+        let tasks = streamTasks.values.filter(\.interruptible).map(\.task)
         streamTasksLock.unlock()
         tasks.forEach { $0.cancel() }
     }
