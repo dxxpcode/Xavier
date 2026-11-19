@@ -61,6 +61,8 @@ final class VoiceSession: NSObject, ObservableObject {
 
     private var followUpPending = false
     private var followUpTimeoutTask: Task<Void, Never>?
+    /// Last time a partial transcript arrived; detects "user is still speaking".
+    private var lastPartialAt = Date.distantPast
     /// Command text captured alongside the wake phrase, seeded into the new capture.
     private var wakeCommandSeed: String?
     /// Conversation the last delivered transcript (and its reply) belonged to;
@@ -190,6 +192,7 @@ final class VoiceSession: NSObject, ObservableObject {
             Task { @MainActor in
                 if let result {
                     self.liveTranscript = result.bestTranscription.formattedString
+                    if !result.isFinal { self.lastPartialAt = Date() }
                     if result.isFinal {
                         if self.awaitingFinalResult {
                             self.deliverTranscript()
@@ -465,17 +468,22 @@ final class VoiceSession: NSObject, ObservableObject {
             return
         }
         followUpPending = true
+        lastPartialAt = .distantPast
         beginCapture()
+        let silenceDeadline = Date().addingTimeInterval(8)
+        let hardDeadline = Date().addingTimeInterval(20)
         followUpTimeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(8))
-            guard let self else { return }
-                if case .listening = self.state {
-                if self.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    self.cancelListening()
-                } else {
-                    // The user started a follow-up but paused: end audio so the
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, case .listening = self.state else { return }
+                let partial = self.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+                let now = Date()
+                if partial.isEmpty {
+                    if now >= silenceDeadline { self.cancelListening(); return }
+                } else if now >= hardDeadline || now.timeIntervalSince(self.lastPartialAt) > 1.5 {
+                    // The user paused (or hit the hard cap): end audio so the
                     // recognizer delivers what it has instead of recording on.
-                    self.finishListening()
+                    self.finishListening(); return
                 }
             }
         }
