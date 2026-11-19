@@ -164,10 +164,11 @@ final class AssistantOrchestrator: ObservableObject {
                     self.updateStreaming(id: assistantMessage.id, content: accumulated)
                 }
                 self.finishExchange(messageID: assistantMessage.id, content: accumulated,
-                                    userText: userText, excluded: excluded)
+                                    userText: userText, excluded: excluded, conversationID: conv.id)
             } catch InferenceError.cancelled {
                 self.finishExchange(messageID: assistantMessage.id, content: accumulated,
-                                    userText: userText, excluded: excluded, interrupted: true)
+                                    userText: userText, excluded: excluded, interrupted: true,
+                                    conversationID: conv.id)
             } catch {
                 self.failExchange(messageID: assistantMessage.id, error: error)
             }
@@ -180,7 +181,8 @@ final class AssistantOrchestrator: ObservableObject {
     }
 
     private func finishExchange(messageID: String, content: String, userText: String,
-                              excluded: Bool, interrupted: Bool = false) {
+                              excluded: Bool, interrupted: Bool = false,
+                              conversationID: String) {
         isGenerating = false
         finalize(message: messages.first(where: { $0.id == messageID }), content: content, interrupted: interrupted)
         if !content.isEmpty {
@@ -193,7 +195,7 @@ final class AssistantOrchestrator: ObservableObject {
             let engine = memoryEngine
             let provider = self.provider
             let model = modelManager.selectedModel
-            let convID = conversation?.id ?? ""
+            let convID = conversationID
             Task { [weak self] in
                 await engine.extract(fromUserText: userText, assistantText: content,
                                      conversationID: convID, provider: provider, model: model) {
