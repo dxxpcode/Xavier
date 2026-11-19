@@ -28,7 +28,7 @@ final class VoiceSession: NSObject, ObservableObject {
     private var tapInstalled = false
     private var awaitingFinalResult = false
     private var finishGeneration = 0
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    nonisolated(unsafe) private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let synthesizer = AVSpeechSynthesizer()
@@ -47,8 +47,10 @@ final class VoiceSession: NSObject, ObservableObject {
 
     // MARK: - Wake word
 
-    private var wakeWordRequest: SFSpeechAudioBufferRecognitionRequest?
+    nonisolated(unsafe) private var wakeWordRequest: SFSpeechAudioBufferRecognitionRequest?
     private var wakeWordTask: SFSpeechRecognitionTask?
+    /// Guards the two request references the audio tap reads off-actor.
+    private let requestLock = NSLock()
     private var wakeRestartTask: Task<Void, Never>?
     /// Incremented whenever wake mode is (re)armed or torn down, so a stale
     /// result handler can't activate or cancel a newer task.
@@ -201,8 +203,12 @@ final class VoiceSession: NSObject, ObservableObject {
         let format = inputNode.outputFormat(forBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }
-            self.recognitionRequest?.append(buffer)
-            self.wakeWordRequest?.append(buffer)
+            self.requestLock.lock()
+            let request = self.recognitionRequest
+            let wakeRequest = self.wakeWordRequest
+            self.requestLock.unlock()
+            request?.append(buffer)
+            wakeRequest?.append(buffer)
             self.updateLevel(buffer)
         }
         tapInstalled = true
@@ -274,7 +280,9 @@ final class VoiceSession: NSObject, ObservableObject {
             tapInstalled = false
         }
         recognitionRequest?.endAudio()
+        requestLock.lock()
         recognitionRequest = nil
+        requestLock.unlock()
         audioLevel = 0
     }
 
@@ -325,7 +333,9 @@ final class VoiceSession: NSObject, ObservableObject {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
+        requestLock.lock()
         wakeWordRequest = request
+        requestLock.unlock()
         wakeWordActive = true
         wakeWordTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
@@ -371,7 +381,9 @@ final class VoiceSession: NSObject, ObservableObject {
     private func scheduleWakeRestart() {
         wakeWordTask?.cancel()
         wakeWordTask = nil
+        requestLock.lock()
         wakeWordRequest = nil
+        requestLock.unlock()
         wakeWordActive = false
         guard wakeDesired, wakeRestartTask == nil else { return }
         wakeRestartAttempts += 1
@@ -391,7 +403,9 @@ final class VoiceSession: NSObject, ObservableObject {
         wakeRestartTask = nil
         wakeWordTask?.cancel()
         wakeWordTask = nil
+        requestLock.lock()
         wakeWordRequest = nil
+        requestLock.unlock()
         wakeWordActive = false
         wakeRestartAttempts = 0
     }
