@@ -65,6 +65,9 @@ final class VoiceSession: NSObject, ObservableObject {
     private var lastPartialAt = Date.distantPast
     /// Command text captured alongside the wake phrase, seeded into the new capture.
     private var wakeCommandSeed: String?
+    /// The seeded command with a trailing space, prepended to every new
+    /// recognition result so the opening words aren't lost.
+    private var captureSeedPrefix = ""
     /// Conversation the last delivered transcript (and its reply) belonged to;
     /// set by AppState so follow-ups stay in the same chat.
     var lastExchangeConversationID: String?
@@ -154,6 +157,7 @@ final class VoiceSession: NSObject, ObservableObject {
         stopWakeTask()
         stopCapture()
         liveTranscript = wakeCommandSeed ?? ""
+        captureSeedPrefix = wakeCommandSeed.map { $0 + " " } ?? ""
         wakeCommandSeed = nil
 
         // On-device only — audio never leaves the Mac.
@@ -191,7 +195,7 @@ final class VoiceSession: NSObject, ObservableObject {
             guard let self else { return }
             Task { @MainActor in
                 if let result {
-                    self.liveTranscript = result.bestTranscription.formattedString
+                    self.liveTranscript = self.captureSeedPrefix + result.bestTranscription.formattedString
                     if !result.isFinal { self.lastPartialAt = Date() }
                     if result.isFinal {
                         if self.awaitingFinalResult {
