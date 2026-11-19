@@ -51,6 +51,14 @@ final class OrbWindowController {
     }
 
     func hide() {
+        // Dismissing the orb mid-dictation must end capture; otherwise the
+        // hidden recognizer can still deliver a transcript with no UI.
+        switch appState.voiceSession.state {
+        case .listening, .transcribing:
+            appState.voiceSession.cancelListening()
+        default:
+            break
+        }
         panel?.orderOut(nil)
         cancelHide()
         stopEscapeMonitor()
