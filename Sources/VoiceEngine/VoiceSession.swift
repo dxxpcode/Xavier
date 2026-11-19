@@ -409,15 +409,20 @@ final class VoiceSession: NSObject, ObservableObject {
     /// punctuation (normalized text would mangle values like "3.5").
     private func commandAfterWakePhrase(in text: String) -> String? {
         let lower = text.lowercased()
-        guard let xavier = lower.range(of: "xavier") else { return nil }
-        let before = normalizedWakeText(String(lower[..<xavier.lowerBound]))
-        guard before == "hey" || before == "a" || before.hasSuffix(" hey") || before.hasSuffix(" a") else {
-            return nil
+        var searchStart = lower.startIndex
+        // Scan every occurrence — an earlier "Xavier" not preceded by hey/a
+        // isn't the wake phrase (e.g. "tell Xavier: hey Xavier, open notes").
+        while let xavier = lower.range(of: "xavier", range: searchStart..<lower.endIndex) {
+            let before = normalizedWakeText(String(lower[..<xavier.lowerBound]))
+            if before == "hey" || before == "a" || before.hasSuffix(" hey") || before.hasSuffix(" a") {
+                let rest = String(text[xavier.upperBound...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: " ,.;:!?"))
+                return rest.isEmpty ? nil : rest
+            }
+            searchStart = xavier.upperBound
         }
-        let rest = String(text[xavier.upperBound...])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: " ,.;:!?"))
-        return rest.isEmpty ? nil : rest
+        return nil
     }
 
     /// Restart the wake task after the recognizer's per-task audio limit or a
