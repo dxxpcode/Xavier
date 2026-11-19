@@ -5,7 +5,7 @@ import Foundation
 final class OllamaProvider: InferenceProvider, @unchecked Sendable {
     let displayName = "Ollama"
 
-    private let baseURL: URL
+    var baseURL: URL
     private let session: URLSession
     nonisolated(unsafe) private var streamTasks: [UUID: (task: Task<Void, Never>, interruptible: Bool)] = [:]
     private let streamTasksLock = NSLock()

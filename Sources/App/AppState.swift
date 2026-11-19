@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 /// Aggregate application state shared across the floating window, menu bar,
@@ -14,6 +15,8 @@ final class AppState: ObservableObject {
 
     @Published var isPanelVisible = false
     @Published var showHistory = false
+
+    private var cancellables = Set<AnyCancellable>()
 
     /// Set by AppDelegate; opens the preferences window.
     var onOpenPreferences: (() -> Void)?
