@@ -220,6 +220,12 @@ final class VoiceSession: NSObject, ObservableObject {
     /// Returns false when the input node reports no usable format (e.g. no mic).
     private func installTapIfNeeded() -> Bool {
         guard !tapInstalled else { return true }
+        // Bail out early when the Mac has no capture hardware — starting the
+        // engine against VoiceIO with zero audio devices can crash it.
+        let session = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone, .external],
+            mediaType: .audio, position: .unspecified)
+        guard !session.devices.isEmpty else { return false }
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { return false }
