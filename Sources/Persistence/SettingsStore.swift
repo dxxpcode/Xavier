@@ -39,6 +39,12 @@ final class SettingsStore: ObservableObject {
     @Published var speakResponses: Bool {
         didSet { defaults.set(speakResponses, forKey: "speakResponses") }
     }
+    @Published var wakeWordEnabled: Bool {
+        didSet { defaults.set(wakeWordEnabled, forKey: "wakeWordEnabled") }
+    }
+    @Published var voiceFollowUpEnabled: Bool {
+        didSet { defaults.set(voiceFollowUpEnabled, forKey: "voiceFollowUpEnabled") }
+    }
     @Published var automaticMemoryEnabled: Bool {
         didSet { defaults.set(automaticMemoryEnabled, forKey: "automaticMemoryEnabled") }
     }
@@ -69,6 +75,8 @@ final class SettingsStore: ObservableObject {
             "voiceIdentifier": "",
             "speakingRate": 0.5,
             "speakResponses": true,
+            "wakeWordEnabled": true,
+            "voiceFollowUpEnabled": true,
             "automaticMemoryEnabled": true,
             "hotkeyKeyCode": 49,          // Space
             "hotkeyModifiers": 2048,      // optionKey (Carbon)
@@ -84,6 +92,8 @@ final class SettingsStore: ObservableObject {
         voiceIdentifier = d.string(forKey: "voiceIdentifier") ?? ""
         speakingRate = d.float(forKey: "speakingRate")
         speakResponses = d.bool(forKey: "speakResponses")
+        wakeWordEnabled = d.bool(forKey: "wakeWordEnabled")
+        voiceFollowUpEnabled = d.bool(forKey: "voiceFollowUpEnabled")
         automaticMemoryEnabled = d.bool(forKey: "automaticMemoryEnabled")
         hotkeyKeyCode = d.integer(forKey: "hotkeyKeyCode")
         hotkeyModifiers = d.integer(forKey: "hotkeyModifiers")
