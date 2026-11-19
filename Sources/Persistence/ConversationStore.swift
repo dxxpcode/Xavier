@@ -40,6 +40,14 @@ final class ConversationStore {
         }
     }
 
+    func isExcludedFromMemory(id: String) throws -> Bool {
+        try db.query("SELECT excluded_from_memory FROM conversations WHERE id = ?;") { s in
+            Database.bindText(s, 1, id)
+        } row: { s in
+            sqlite3_column_int(s, 0) != 0
+        }.first ?? false
+    }
+
     func setExcludedFromMemory(id: String, excluded: Bool) throws {
         try db.run("UPDATE conversations SET excluded_from_memory = ? WHERE id = ?;") { s in
             sqlite3_bind_int(s, 1, excluded ? 1 : 0)

@@ -191,7 +191,7 @@ final class AssistantOrchestrator: ObservableObject {
             Task { [weak self] in
                 await engine.extract(fromUserText: userText, assistantText: content,
                                      conversationID: convID, provider: provider, model: model) {
-                    self?.conversation?.excludedFromMemory == false
+                    (try? self?.conversationStore.isExcludedFromMemory(id: convID)) == false
                 }
             }
         }
