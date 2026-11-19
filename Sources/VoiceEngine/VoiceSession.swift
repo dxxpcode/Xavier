@@ -151,7 +151,8 @@ final class VoiceSession: NSObject, ObservableObject {
     private func beginCapture() {
         stopWakeTask()
         stopCapture()
-        liveTranscript = ""
+        liveTranscript = wakeCommandSeed ?? ""
+        wakeCommandSeed = nil
 
         // On-device only — audio never leaves the Mac.
         guard onDeviceRecognitionSupported else {
@@ -226,6 +227,7 @@ final class VoiceSession: NSObject, ObservableObject {
             self.updateLevel(buffer)
         }
         tapInstalled = true
+        return true
     }
 
     private func updateLevel(_ buffer: AVAudioPCMBuffer) {
@@ -361,8 +363,15 @@ final class VoiceSession: NSObject, ObservableObject {
                 if let result {
                     let text = result.bestTranscription.formattedString
                     if self.matchesWakeWord(text) {
-                        self.handleWakeWord()
-                        return
+                        switch self.state {
+                        case .idle, .interrupted, .error:
+                            // Only react at rest — never mid-capture or while
+                            // speaking, which would feed back on our own voice.
+                            self.handleWakeWord(from: text)
+                            return
+                        default:
+                            break
+                        }
                     }
                     // Recognition tasks cap out around a minute of audio; a
                     // final result without a match means it's time to re-arm.
@@ -386,11 +395,25 @@ final class VoiceSession: NSObject, ObservableObject {
         return normalized.contains("hey xavier") || normalized.contains("a xavier")
     }
 
-    private func handleWakeWord() {
+    private func handleWakeWord(from text: String) {
         wakeWordActive = false
         wakeRestartAttempts = 0
+        // "Hey Xavier, <command>" — keep the command for the new capture.
+        wakeCommandSeed = commandAfterWakePhrase(in: text)
         onWakeWord?()
         startListening()
+    }
+
+    /// Text after the wake phrase in a normalized transcript, if any.
+    private func commandAfterWakePhrase(in text: String) -> String? {
+        let normalized = normalizedWakeText(text)
+        for phrase in ["hey xavier", "a xavier"] {
+            if let range = normalized.range(of: phrase) {
+                let rest = normalized[range.upperBound...].trimmingCharacters(in: .whitespaces)
+                return rest.isEmpty ? nil : rest
+            }
+        }
+        return nil
     }
 
     /// Restart the wake task after the recognizer's per-task audio limit or a
