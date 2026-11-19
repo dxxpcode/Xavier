@@ -68,7 +68,7 @@ final class ModelManager: ObservableObject {
     func remove(name: String) async {
         do {
             try await provider.deleteModel(name: name)
-            if selectedModel == name { selectedModel = "" }
+            if selectedModel == name { select(model: "") }
             await refresh()
         } catch {
             lastError = error.localizedDescription
