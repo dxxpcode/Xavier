@@ -123,7 +123,8 @@ final class ConversationStore {
     }
 
     func messages(forConversation id: String, limit: Int = 500) throws -> [ChatMessage] {
-        try db.query("SELECT id, conversation_id, role, content, is_complete, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ?;") { s in
+        // Return the *newest* `limit` messages: order descending, then flip.
+        let newest = try db.query("SELECT id, conversation_id, role, content, is_complete, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?;") { s in
             Database.bindText(s, 1, id)
             sqlite3_bind_int(s, 2, Int32(limit))
         } row: { s in
@@ -133,6 +134,7 @@ final class ConversationStore {
                         isComplete: sqlite3_column_int(s, 4) != 0,
                         createdAt: Date(timeIntervalSince1970: sqlite3_column_double(s, 5)))
         }
+        return Array(newest.reversed())
     }
 
     func latestConversation() throws -> Conversation? {
