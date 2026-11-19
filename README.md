@@ -14,9 +14,9 @@ Conversations, memories, and settings stay on disk — nothing leaves the device
   anywhere.
 - **Local inference** — chat is streamed from a local Ollama model. Models can
   be installed and removed from Preferences → AI Models.
-- **Voice** — push-to-talk speech capture with on-device transcription and
-  spoken replies, triggered from the mic button, menu bar, or ⌥M (all
-  on-device; configurable in Preferences → Voice).
+- **Voice** — "Hey Xavier" wake word plus push-to-talk speech capture with
+  on-device transcription, spoken replies, and a conversational follow-up
+  window after each reply (all on-device; toggleable in Preferences → Voice).
 - **Persistent memory** — Xavier extracts durable facts, preferences, and
   goals from conversations with your consent, ranks them by relevance, and
   injects them into future context. Fully searchable and editable in
@@ -52,7 +52,8 @@ Or open `Xavier.xcodeproj` in Xcode and press ⌘R.
   management, context builder, orchestration
 - `Sources/Memory` — memory schema, extraction engine, retrieval
 - `Sources/Persistence` — SQLite wrapper, stores, models
-- `Sources/VoiceEngine` — capture, recognition, synthesis state machine
+- `Sources/VoiceEngine` — capture, recognition, synthesis state machine with
+  wake-word loop and follow-up turns
 - `Sources/Support` — global hotkey (Carbon), logging
 - `Sources/Security` — Keychain wrapper
 - `tools/make_assets.swift` — regenerates brand assets from the official logos

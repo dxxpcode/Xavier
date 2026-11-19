@@ -3,8 +3,8 @@ import Foundation
 import Speech
 
 /// Voice conversation state machine: capture → on-device transcription →
-/// orchestrator → spoken response. Activation is manual (mic button, menu
-/// bar, or keyboard shortcut); no background listening.
+/// orchestrator → spoken response. Supports always-on "Hey Xavier" wake word
+/// and a conversational follow-up window after each spoken reply.
 @MainActor
 final class VoiceSession: NSObject, ObservableObject {
     enum State: Equatable {
@@ -21,6 +21,8 @@ final class VoiceSession: NSObject, ObservableObject {
     @Published private(set) var liveTranscript: String = ""
     @Published private(set) var audioLevel: Float = 0
     @Published private(set) var permissionGranted = false
+    /// True while the recognizer is passively listening for "Hey Xavier".
+    @Published private(set) var wakeWordActive = false
 
     private let audioEngine = AVAudioEngine()
     private var tapInstalled = false
@@ -38,8 +40,34 @@ final class VoiceSession: NSObject, ObservableObject {
     /// Returns the conversation voice input should target; set by AppState.
     var conversationProvider: (() -> String?)?
     private var targetConversationID: String?
+    /// Called when the wake word is detected; AppDelegate shows the panel.
+    var onWakeWord: (() -> Void)?
     /// Called when a state transitions to error.
     var onError: ((String) -> Void)?
+
+    // MARK: - Wake word
+
+    nonisolated(unsafe) private var wakeWordRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var wakeWordTask: SFSpeechRecognitionTask?
+    /// Guards the two request references the audio tap reads off-actor.
+    private let requestLock = NSLock()
+    private var wakeRestartTask: Task<Void, Never>?
+    /// Incremented whenever wake mode is (re)armed or torn down, so a stale
+    /// result handler can't activate or cancel a newer task.
+    private var wakeGeneration = 0
+    private var wakeRestartAttempts = 0
+
+    // MARK: - Follow-up
+
+    private var followUpPending = false
+    private var followUpTimeoutTask: Task<Void, Never>?
+    /// Last time a partial transcript arrived; detects "user is still speaking".
+    private var lastPartialAt = Date.distantPast
+    /// Command text captured alongside the wake phrase, seeded into the new capture.
+    private var wakeCommandSeed: String?
+    /// Conversation the last delivered transcript (and its reply) belonged to;
+    /// set by AppState so follow-ups stay in the same chat.
+    var lastExchangeConversationID: String?
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -58,6 +86,7 @@ final class VoiceSession: NSObject, ObservableObject {
             SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
         }
         permissionGranted = speechStatus == .authorized
+        if permissionGranted { applyVoiceSettings() }
         return permissionGranted
     }
 
@@ -76,6 +105,19 @@ final class VoiceSession: NSObject, ObservableObject {
     }
 
     // MARK: - Session control
+
+    /// Apply current settings: start or stop the wake-word loop. Called at
+    /// launch and whenever voice preferences change.
+    func applyVoiceSettings() {
+        if settings.wakeWordEnabled {
+            maybeStartWakeListening()
+        } else {
+            stopWakeListening()
+        }
+        if !settings.voiceFollowUpEnabled && followUpPending {
+            cancelListening()
+        }
+    }
 
     /// Toggle: idle → listening; listening → finish; speaking → interrupt.
     func toggle() {
@@ -109,8 +151,10 @@ final class VoiceSession: NSObject, ObservableObject {
     }
 
     private func beginCapture() {
+        stopWakeTask()
         stopCapture()
-        liveTranscript = ""
+        liveTranscript = wakeCommandSeed ?? ""
+        wakeCommandSeed = nil
 
         // On-device only — audio never leaves the Mac.
         guard onDeviceRecognitionSupported else {
@@ -141,13 +185,14 @@ final class VoiceSession: NSObject, ObservableObject {
         }
 
         state = .listening
-        targetConversationID = conversationProvider?()
+        targetConversationID = followUpPending ? lastExchangeConversationID : conversationProvider?()
 
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
             Task { @MainActor in
                 if let result {
                     self.liveTranscript = result.bestTranscription.formattedString
+                    if !result.isFinal { self.lastPartialAt = Date() }
                     if result.isFinal {
                         if self.awaitingFinalResult {
                             self.deliverTranscript()
@@ -167,8 +212,8 @@ final class VoiceSession: NSObject, ObservableObject {
         }
     }
 
-    /// Feeds captured audio to the recognition request. Returns false when
-    /// the input node reports no usable format (e.g. no mic).
+    /// One tap feeds both the dictation request and the wake-word request.
+    /// Returns false when the input node reports no usable format (e.g. no mic).
     private func installTapIfNeeded() -> Bool {
         guard !tapInstalled else { return true }
         let inputNode = audioEngine.inputNode
@@ -176,7 +221,12 @@ final class VoiceSession: NSObject, ObservableObject {
         guard format.sampleRate > 0, format.channelCount > 0 else { return false }
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }
-            self.recognitionRequest?.append(buffer)
+            self.requestLock.lock()
+            let request = self.recognitionRequest
+            let wakeRequest = self.wakeWordRequest
+            self.requestLock.unlock()
+            request?.append(buffer)
+            wakeRequest?.append(buffer)
             self.updateLevel(buffer)
         }
         tapInstalled = true
@@ -210,10 +260,18 @@ final class VoiceSession: NSObject, ObservableObject {
 
     private func deliverTranscript() {
         awaitingFinalResult = false
+        followUpPending = false
         let text = liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         recognitionTask = nil
+        followUpTimeoutTask?.cancel()
         guard !text.isEmpty else {
-            state = .idle
+            enterStandby()
+            return
+        }
+        // In a follow-up turn, a phrase that is just the wake word is a
+        // stray recognition, not a command.
+        if normalizedWakeText(text) == "xavier" {
+            enterStandby()
             return
         }
         onTranscript?(text, targetConversationID)
@@ -221,10 +279,11 @@ final class VoiceSession: NSObject, ObservableObject {
 
     func cancelListening() {
         awaitingFinalResult = false
+        followUpPending = false
+        followUpTimeoutTask?.cancel()
         stopCapture()
         liveTranscript = ""
-        if case .speaking = state { return }
-        state = .idle
+        enterStandby()
     }
 
     /// Stops the engine and tap, ending the audio feed but letting the
@@ -238,7 +297,9 @@ final class VoiceSession: NSObject, ObservableObject {
             tapInstalled = false
         }
         recognitionRequest?.endAudio()
+        requestLock.lock()
         recognitionRequest = nil
+        requestLock.unlock()
         audioLevel = 0
     }
 
@@ -250,6 +311,197 @@ final class VoiceSession: NSObject, ObservableObject {
         recognitionTask = nil
     }
 
+    /// Return to a passive state; resumes the wake-word loop when enabled.
+    private func enterStandby() {
+        if case .speaking = state { return }
+        state = .idle
+        maybeStartWakeListening()
+    }
+
+    // MARK: - Wake word loop
+
+    private var wakeDesired: Bool {
+        settings.wakeWordEnabled && permissionGranted && onDeviceRecognitionSupported
+    }
+
+    /// Start passive "Hey Xavier" listening when the session is at rest.
+    private func maybeStartWakeListening() {
+        guard wakeDesired, wakeWordTask == nil, recognitionRequest == nil else { return }
+        switch state {
+        case .idle, .interrupted, .error:
+            break
+        default:
+            return
+        }
+        guard installTapIfNeeded() else {
+            scheduleWakeRestart()
+            return
+        }
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            scheduleWakeRestart()
+            return
+        }
+        startWakeTask()
+    }
+
+    private func startWakeTask() {
+        wakeGeneration += 1
+        let generation = wakeGeneration
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.requiresOnDeviceRecognition = true
+        request.shouldReportPartialResults = true
+        requestLock.lock()
+        wakeWordRequest = request
+        requestLock.unlock()
+        wakeWordActive = true
+        wakeWordTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
+            Task { @MainActor in
+                guard self.wakeGeneration == generation else { return }
+                if let result {
+                    let text = result.bestTranscription.formattedString
+                    if self.matchesWakeWord(text) {
+                        switch self.state {
+                        case .idle, .interrupted, .error:
+                            // Only react at rest — never mid-capture or while
+                            // speaking, which would feed back on our own voice.
+                            self.handleWakeWord(from: text)
+                            return
+                        default:
+                            break
+                        }
+                    }
+                    // Recognition tasks cap out around a minute of audio; a
+                    // final result without a match means it's time to re-arm.
+                    if result.isFinal { self.scheduleWakeRestart() }
+                } else if error != nil {
+                    self.scheduleWakeRestart()
+                }
+            }
+        }
+    }
+
+    private func normalizedWakeText(_ text: String) -> String {
+        text.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func matchesWakeWord(_ text: String) -> Bool {
+        let normalized = normalizedWakeText(text)
+        return normalized.contains("hey xavier") || normalized.contains("a xavier")
+    }
+
+    private func handleWakeWord(from text: String) {
+        wakeWordActive = false
+        wakeRestartAttempts = 0
+        // "Hey Xavier, <command>" — keep the command for the new capture.
+        wakeCommandSeed = commandAfterWakePhrase(in: text)
+        onWakeWord?()
+        startListening()
+    }
+
+    /// Text after the wake phrase in the raw transcript, preserving
+    /// punctuation (normalized text would mangle values like "3.5").
+    private func commandAfterWakePhrase(in text: String) -> String? {
+        let lower = text.lowercased()
+        var searchStart = lower.startIndex
+        // Scan every occurrence — an earlier "Xavier" not preceded by hey/a
+        // isn't the wake phrase (e.g. "tell Xavier: hey Xavier, open notes").
+        while let xavier = lower.range(of: "xavier", range: searchStart..<lower.endIndex) {
+            // "Xavier's" is possessive, not the wake phrase — keep scanning.
+            if lower[xavier.upperBound...].first == "'" {
+                searchStart = xavier.upperBound
+                continue
+            }
+            let before = normalizedWakeText(String(lower[..<xavier.lowerBound]))
+            if before == "hey" || before == "a" || before.hasSuffix(" hey") || before.hasSuffix(" a") {
+                let rest = String(text[xavier.upperBound...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: " ,.;:!?"))
+                return rest.isEmpty ? nil : rest
+            }
+            searchStart = xavier.upperBound
+        }
+        return nil
+    }
+
+    /// Restart the wake task after the recognizer's per-task audio limit or a
+    /// transient failure, with light backoff so persistent errors don't spin.
+    private func scheduleWakeRestart() {
+        wakeWordTask?.cancel()
+        wakeWordTask = nil
+        requestLock.lock()
+        wakeWordRequest = nil
+        requestLock.unlock()
+        wakeWordActive = false
+        guard wakeDesired, wakeRestartTask == nil else { return }
+        wakeRestartAttempts += 1
+        let delay = min(0.5 * Double(wakeRestartAttempts), 5)
+        wakeRestartTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self else { return }
+            self.wakeRestartTask = nil
+            self.maybeStartWakeListening()
+        }
+    }
+
+    /// Cancel only the wake task/request; leaves engine state to the caller.
+    private func stopWakeTask() {
+        wakeGeneration += 1
+        wakeRestartTask?.cancel()
+        wakeRestartTask = nil
+        wakeWordTask?.cancel()
+        wakeWordTask = nil
+        requestLock.lock()
+        wakeWordRequest = nil
+        requestLock.unlock()
+        wakeWordActive = false
+        wakeRestartAttempts = 0
+    }
+
+    private func stopWakeListening() {
+        stopWakeTask()
+        if case .idle = state { stopAudioInput() }
+        else if case .error = state { stopAudioInput() }
+        else if case .interrupted = state { stopAudioInput() }
+    }
+
+    // MARK: - Follow-up
+
+    /// After a spoken reply, briefly listen for a follow-up (Siri-style
+    /// conversational turn) without requiring the wake word again.
+    private func beginFollowUp() {
+        guard settings.voiceFollowUpEnabled, permissionGranted else {
+            enterStandby()
+            return
+        }
+        followUpPending = true
+        lastPartialAt = .distantPast
+        beginCapture()
+        let silenceDeadline = Date().addingTimeInterval(8)
+        let hardDeadline = Date().addingTimeInterval(20)
+        followUpTimeoutTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, case .listening = self.state else { return }
+                let partial = self.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+                let now = Date()
+                if partial.isEmpty {
+                    if now >= silenceDeadline { self.cancelListening(); return }
+                } else if now >= hardDeadline || now.timeIntervalSince(self.lastPartialAt) > 1.5 {
+                    // The user paused (or hit the hard cap): end audio so the
+                    // recognizer delivers what it has instead of recording on.
+                    self.finishListening(); return
+                }
+            }
+        }
+    }
+
     // MARK: - Orchestrator hooks
 
     func setProcessing() {
@@ -259,14 +511,14 @@ final class VoiceSession: NSObject, ObservableObject {
 
     /// Resets a stale .processing/.transcribing state after a failed exchange.
     func setIdle() {
-        if case .processing = state { state = .idle }
-        else if case .transcribing = state { state = .idle }
+        if case .processing = state { enterStandby() }
+        else if case .transcribing = state { enterStandby() }
     }
 
     /// Speak an assistant response (interruptible).
     func speak(_ text: String) {
         guard settings.speakResponses else {
-            state = .idle
+            enterStandby()
             return
         }
         let utterance = AVSpeechUtterance(string: text)
@@ -286,12 +538,14 @@ final class VoiceSession: NSObject, ObservableObject {
             synthesizer.stopSpeaking(at: .immediate)
         }
         state = .interrupted
+        maybeStartWakeListening()
     }
 
     private func fail(_ message: String) {
         stopCapture()
         state = .error(message)
         onError?(message)
+        maybeStartWakeListening()
     }
 }
 
@@ -300,6 +554,7 @@ extension VoiceSession: AVSpeechSynthesizerDelegate {
         Task { @MainActor in
             guard case .speaking = self.state else { return }
             self.state = .idle
+            self.beginFollowUp()
         }
     }
 

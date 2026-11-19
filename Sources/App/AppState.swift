@@ -46,6 +46,7 @@ final class AppState: ObservableObject {
         voice.onTranscript = { [weak orchestrator, weak voice] text, conversationID in
             voice?.setProcessing()
             orchestrator?.send(text: text, toConversationID: conversationID)
+            voice?.lastExchangeConversationID = orchestrator?.conversation?.id
         }
         orchestrator.onAssistantCompleted = { [weak voice] response in
             voice?.speak(response)

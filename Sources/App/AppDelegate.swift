@@ -22,11 +22,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerHotkey()
         registerLocalShortcuts()
 
+        appState.voiceSession.onWakeWord = { [weak self] in
+            self?.floatingWindow.show()
+            self?.floatingWindow.noteUserActivity()
+        }
         appState.voiceSession.refreshPermissionStatus()
         if !appState.settings.hasCompletedOnboarding {
             onboarding.show(appState: appState) { [weak self] in
                 self?.floatingWindow.show()
+                self?.appState.voiceSession.applyVoiceSettings()
             }
+        } else {
+            appState.voiceSession.applyVoiceSettings()
         }
     }
 

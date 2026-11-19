@@ -207,6 +207,18 @@ struct VoicePreferences: View {
                     Slider(value: $settings.speakingRate, in: 0...1)
                 }
             }
+            Section("Activation") {
+                Toggle("Listen for \"Hey Xavier\"", isOn: $settings.wakeWordEnabled)
+                Toggle("Keep listening for follow-ups after a reply", isOn: $settings.voiceFollowUpEnabled)
+                if settings.wakeWordEnabled {
+                    LabeledContent("Wake word") {
+                        Text(voice.wakeWordActive ? "Listening" : "Inactive")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .onChange(of: settings.wakeWordEnabled) { _, _ in voice.applyVoiceSettings() }
+            .onChange(of: settings.voiceFollowUpEnabled) { _, _ in voice.applyVoiceSettings() }
             Section("Input") {
                 HStack {
                     Text("Microphone permission")
