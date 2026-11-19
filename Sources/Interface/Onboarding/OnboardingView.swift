@@ -57,15 +57,19 @@ struct OnboardingView: View {
             .padding(20)
         }
         .frame(width: 520, height: 440)
+        .background(
+            LinearGradient(
+                colors: [Color(red: 0.05, green: 0.07, blue: 0.22),
+                         Color(red: 0.0, green: 0.0, blue: 0.07)],
+                startPoint: .top, endPoint: .bottom)
+        )
+        .preferredColorScheme(.dark)
         .task { await models.refresh() }
     }
 
     private var welcomeStep: some View {
         VStack(spacing: 16) {
-            Image("XavierMark")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 52, height: 52)
+            SiriOrb(state: .idle, diameter: 84)
             Text("Welcome to Xavier")
                 .font(.title)
             Text("A personal assistant that lives in your Mac. Open it anywhere with a keyboard shortcut, talk or type, and it remembers what matters — all on your machine.")
@@ -121,7 +125,7 @@ struct OnboardingView: View {
     private var voiceStep: some View {
         VStack(spacing: 16) {
             Text("Voice").font(.title2)
-            Text("Press the microphone button or ⌥M in the panel to talk. Speech is recognized on-device — audio never leaves your Mac.")
+            Text("Say “Hey Xavier” or tap the orb to talk — Xavier keeps listening for follow-ups. Speech is recognized on-device: audio never leaves your Mac.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             HStack(spacing: 12) {
@@ -173,10 +177,7 @@ struct OnboardingView: View {
 
     private var doneStep: some View {
         VStack(spacing: 16) {
-            Image("XavierMark")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 44, height: 44)
+            SiriOrb(state: .idle, diameter: 64)
             Text("You're set").font(.title2)
             Text("Press \(HotKeyManager.displayString(keyCode: settings.hotkeyKeyCode, modifiers: settings.hotkeyModifiers)) anytime to open Xavier.")
                 .multilineTextAlignment(.center)

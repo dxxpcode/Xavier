@@ -18,6 +18,7 @@
 		3D108A3FA2E549BB5360D4D3 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7815B6AA1F8B98F3ED9C5E9D /* OnboardingView.swift */; };
 		489A310D1B799EBE3EF88811 /* InferenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F632D0B5ED934E134399A627 /* InferenceProvider.swift */; };
 		48C0E3134658D30E8B535045 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73933C5AFA3DAA7F838687C2 /* SettingsStore.swift */; };
+		5926F3943FCBB073BC280F99 /* EdgeGlowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD715614A6E3668F59A2A4C6 /* EdgeGlowController.swift */; };
 		5B6456DC8BE2636FE8334741 /* HotKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E463425BAEAC09F0580ACDE /* HotKeyManager.swift */; };
 		5F7F90B08656EA3EDE526A2D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 30FE62C9C92331602234800C /* Assets.xcassets */; };
 		6D22E66B421666ED64C324F3 /* XavierLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68BA11F860AE7D65739A432 /* XavierLog.swift */; };
@@ -30,6 +31,7 @@
 		9F7AD11F9945C4FD839A1569 /* OllamaProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9195C4D4AD27DA89426470C5 /* OllamaProvider.swift */; };
 		A969AA62DB49C4C514E7B133 /* AssistantOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0CA4D8B376C80F131FFEDE9 /* AssistantOrchestrator.swift */; };
 		B1367D28B58A78DF44DA325A /* XavierApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231F946A4FD1A4C1CCF9C8AF /* XavierApp.swift */; };
+		BD3152AA88AF2151578A2609 /* SiriOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7129B83A2F1296D699493F /* SiriOrb.swift */; };
 		C217EC4CF4B316C6D19D7465 /* MemoryEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EDC72959F828A7D8814DF94 /* MemoryEngine.swift */; };
 		C52FFEC003EFAA36E37F018C /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7333EF3DC0A35C0926E514FF /* Database.swift */; };
 		CFE47FAA3A23B04C6BAD4139 /* ShortcutRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6396D4FED471F37110E427C /* ShortcutRecorderView.swift */; };
@@ -38,11 +40,13 @@
 		D5218FD9A75AA4E2B4545EE9 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFB2FD5857CEFB23CB06774 /* KeychainStore.swift */; };
 		EFAD9C2AE2B1BB921D32C0A3 /* ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F64DB14CB446E10A1853904F /* ModelManager.swift */; };
 		F436D49EF7D226EEFE4C4492 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66453A362E4BBE1681D9EC46 /* MenuBarController.swift */; };
+		F49BB5ABB727BB47D2204B9E /* AnswerCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09E3F14815383330FD67C59C /* AnswerCard.swift */; };
 		F8F8485B301A638FA35FD1AB /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710829E1B13010234B482E1F /* PreferencesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		00386C07C031B01D380A5115 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		09E3F14815383330FD67C59C /* AnswerCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerCard.swift; sourceTree = "<group>"; };
 		0C41DAC271E6FFF3E36F6657 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		0EDC72959F828A7D8814DF94 /* MemoryEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryEngine.swift; sourceTree = "<group>"; };
 		0FFB2FD5857CEFB23CB06774 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
@@ -64,8 +68,10 @@
 		9195C4D4AD27DA89426470C5 /* OllamaProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaProvider.swift; sourceTree = "<group>"; };
 		9533B87C8011391257B9C2AB /* ContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextBuilder.swift; sourceTree = "<group>"; };
 		A68BA11F860AE7D65739A432 /* XavierLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XavierLog.swift; sourceTree = "<group>"; };
+		AD715614A6E3668F59A2A4C6 /* EdgeGlowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeGlowController.swift; sourceTree = "<group>"; };
 		AFE74CF75438E1D085E0405E /* ConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStore.swift; sourceTree = "<group>"; };
 		B6396D4FED471F37110E427C /* ShortcutRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecorderView.swift; sourceTree = "<group>"; };
+		BA7129B83A2F1296D699493F /* SiriOrb.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriOrb.swift; sourceTree = "<group>"; };
 		BDC8BD9A7BCEB7442210F967 /* Xavier.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Xavier.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C288ED3E41E495B26A797064 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		D0CA4D8B376C80F131FFEDE9 /* AssistantOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantOrchestrator.swift; sourceTree = "<group>"; };
@@ -142,8 +148,11 @@
 		8505A0C4874F224510AA9E17 /* Orb */ = {
 			isa = PBXGroup;
 			children = (
+				09E3F14815383330FD67C59C /* AnswerCard.swift */,
+				AD715614A6E3668F59A2A4C6 /* EdgeGlowController.swift */,
 				FF5BA631D22F7FE56A903053 /* OrbView.swift */,
 				5D825977D0311A0BC10A40D3 /* OrbWindowController.swift */,
+				BA7129B83A2F1296D699493F /* SiriOrb.swift */,
 			);
 			path = Orb;
 			sourceTree = "<group>";
@@ -323,6 +332,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F49BB5ABB727BB47D2204B9E /* AnswerCard.swift in Sources */,
 				0B28F1D20B1D969B4E4BF068 /* AppDelegate.swift in Sources */,
 				727D5C5B50BA5563DEC9E36F /* AppState.swift in Sources */,
 				A969AA62DB49C4C514E7B133 /* AssistantOrchestrator.swift in Sources */,
@@ -330,6 +340,7 @@
 				372ACC579E709F15AF9AB07E /* ConversationStore.swift in Sources */,
 				D387F45EBAFAC4CED6A840C6 /* ConversationView.swift in Sources */,
 				C52FFEC003EFAA36E37F018C /* Database.swift in Sources */,
+				5926F3943FCBB073BC280F99 /* EdgeGlowController.swift in Sources */,
 				26C978CE4F1BC3F61548620E /* FloatingWindowController.swift in Sources */,
 				166A3DDE04B3BA45B699D26E /* HistoryView.swift in Sources */,
 				5B6456DC8BE2636FE8334741 /* HotKeyManager.swift in Sources */,
@@ -350,6 +361,7 @@
 				80C59AACF0F5FAB9A2441932 /* PreferencesWindowController.swift in Sources */,
 				48C0E3134658D30E8B535045 /* SettingsStore.swift in Sources */,
 				CFE47FAA3A23B04C6BAD4139 /* ShortcutRecorderView.swift in Sources */,
+				BD3152AA88AF2151578A2609 /* SiriOrb.swift in Sources */,
 				92B7616136EC05FF895116D9 /* VoiceSession.swift in Sources */,
 				2EFFBE530CCA43E195C11326 /* WaveformView.swift in Sources */,
 				B1367D28B58A78DF44DA325A /* XavierApp.swift in Sources */,

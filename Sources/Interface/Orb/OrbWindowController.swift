@@ -4,26 +4,35 @@ import SwiftUI
 
 /// Borderless floating panel hosting the Siri-style orb. Shown on wake word
 /// or the global hotkey, bottom-center on the active display; auto-hides a
-/// few seconds after the assistant comes to rest.
+/// few seconds after the assistant comes to rest. `allowsKey` is flipped on
+/// in type mode so the orb can take keyboard input like "Type to Siri".
 final class OrbPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
+    var allowsKey = false
+    override var canBecomeKey: Bool { allowsKey }
     override var canBecomeMain: Bool { false }
 }
 
 @MainActor
-final class OrbWindowController {
+final class OrbWindowController: ObservableObject {
     private var panel: OrbPanel?
     private let appState: AppState
+    private let edgeGlow: EdgeGlowController
     private var onOpenConversation: (() -> Void)?
     private var hideTask: Task<Void, Never>?
     private var cancellable: AnyCancellable?
     private var escapeGlobalMonitor: Any?
     private var escapeLocalMonitor: Any?
 
+    /// Type-to-Siri input: expanded by the keyboard affordance, submitted
+    /// into the normal pipeline, dismissed by Escape or submit.
+    @Published var typeMode = false
+    @Published var typeText = ""
+
     private static let restDelay: Duration = .seconds(6)
 
     init(appState: AppState) {
         self.appState = appState
+        self.edgeGlow = EdgeGlowController(appState: appState)
         cancellable = appState.voiceSession.$state.sink { [weak self] state in
             Task { @MainActor in self?.stateChanged(state) }
         }
@@ -52,6 +61,7 @@ final class OrbWindowController {
     }
 
     func hide() {
+        exitTypeMode()
         // Dismissing the orb mid-dictation must end capture; otherwise the
         // hidden recognizer can still deliver a transcript with no UI.
         switch appState.voiceSession.state {
@@ -65,6 +75,32 @@ final class OrbWindowController {
         stopEscapeMonitor()
     }
 
+    // MARK: - Type mode
+
+    func enterTypeMode() {
+        guard let panel = ensurePanel() as OrbPanel? else { return }
+        show()
+        typeMode = true
+        panel.allowsKey = true
+        panel.makeKey()
+        cancelHide()
+    }
+
+    func exitTypeMode() {
+        guard typeMode else { return }
+        typeMode = false
+        typeText = ""
+        panel?.allowsKey = false
+        panel?.resignKey()
+    }
+
+    func submitType() {
+        let text = typeText
+        typeText = ""
+        exitTypeMode()
+        appState.sendTyped(text)
+    }
+
     // MARK: - State-driven visibility
 
     private func stateChanged(_ state: VoiceSession.State) {
@@ -72,7 +108,7 @@ final class OrbWindowController {
         case .listening, .transcribing, .processing, .speaking:
             if isVisible { cancelHide() }
         case .idle, .interrupted, .error:
-            scheduleHide()
+            if !typeMode { scheduleHide() }
         }
     }
 
@@ -135,7 +171,7 @@ final class OrbWindowController {
     private func ensurePanel() -> OrbPanel {
         if let panel { return panel }
         let panel = OrbPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 460),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
@@ -153,6 +189,8 @@ final class OrbWindowController {
 
         let content = OrbView(
             voice: appState.voiceSession,
+            controller: self,
+            appState: appState,
             onTap: { [weak self] in self?.appState.voiceSession.toggle() },
             onOpenConversation: { [weak self] in self?.onOpenConversation?() }
         )
@@ -165,13 +203,13 @@ final class OrbWindowController {
         onOpenConversation = handler
     }
 
-    private func positionPanel(_ panel: NSPanel) {
+    private func positionPanel(_ panel: OrbPanel) {
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
                 ?? NSScreen.main else { return }
         let visible = screen.visibleFrame
         let size = panel.frame.size
         let x = visible.midX - size.width / 2
-        let y = visible.minY + visible.height * 0.08
+        let y = visible.minY + visible.height * 0.04
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 }

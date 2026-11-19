@@ -16,6 +16,13 @@ final class AppState: ObservableObject {
     @Published var isPanelVisible = false
     @Published var showHistory = false
 
+    /// The most recent exchange, surfaced on the orb as a transient card.
+    struct Exchange: Equatable {
+        var question: String
+        var answer: String?
+    }
+    @Published var lastExchange: Exchange?
+
     private var cancellables = Set<AnyCancellable>()
 
     /// Set by AppDelegate; opens the preferences window.
@@ -42,19 +49,32 @@ final class AppState: ObservableObject {
                                                  settings: settings)
         let voice = VoiceSession(settings: settings)
 
+        self.settings = settings
+        self.provider = provider
+        self.modelManager = modelManager
+        self.orchestrator = orchestrator
+        self.voiceSession = voice
+        self.memoryEngine = memoryEngine
+        self.conversationStore = conversationStore
+
         // Wire voice → orchestrator → voice.
         voice.conversationProvider = { [weak orchestrator] in
             orchestrator?.conversation?.id
         }
-        voice.onTranscript = { [weak orchestrator, weak voice] text, conversationID in
+        voice.onTranscript = { [weak self, weak orchestrator, weak voice] text, conversationID in
             voice?.setProcessing()
+            self?.lastExchange = Exchange(question: text, answer: nil)
             orchestrator?.send(text: text, toConversationID: conversationID)
             voice?.lastExchangeConversationID = orchestrator?.conversation?.id
         }
-        orchestrator.onAssistantCompleted = { [weak voice, weak orchestrator] response in
+        orchestrator.onAssistantCompleted = { [weak self, weak voice, weak orchestrator] response in
             // Track the exchange's conversation for voice follow-ups —
             // typed replies trigger them too, so this must update here.
             voice?.lastExchangeConversationID = orchestrator?.conversation?.id
+            let question = self?.lastExchange?.question
+                ?? orchestrator?.messages.last(where: { $0.role == .user })?.content
+                ?? ""
+            self?.lastExchange = Exchange(question: question, answer: response)
             voice?.speak(response)
         }
         orchestrator.onAssistantFailed = { [weak voice] in
@@ -67,14 +87,6 @@ final class AppState: ObservableObject {
             provider?.baseURL = url
             Task { await modelManager?.refresh() }
         }.store(in: &cancellables)
-
-        self.settings = settings
-        self.provider = provider
-        self.modelManager = modelManager
-        self.orchestrator = orchestrator
-        self.voiceSession = voice
-        self.memoryEngine = memoryEngine
-        self.conversationStore = conversationStore
     }
 
     func start() {
@@ -83,4 +95,13 @@ final class AppState: ObservableObject {
     }
 
     func openPreferences() { onOpenPreferences?() }
+
+    /// Typed input path (orb type mode): records the exchange for the
+    /// answer card, then sends through the normal pipeline.
+    func sendTyped(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        lastExchange = Exchange(question: trimmed, answer: nil)
+        orchestrator.send(text: trimmed)
+    }
 }

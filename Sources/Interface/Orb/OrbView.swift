@@ -1,59 +1,69 @@
 import SwiftUI
 
-/// Siri-style ambient surface: the XX orb with a live waveform, a state
-/// caption, and the current transcript. Click toggles listening.
+/// Siri-style ambient surface: the living gradient orb, a transient answer
+/// card, a state caption, live transcript, and a Type-to-Siri field.
+/// Click the orb to toggle listening; the keyboard button opens typed input.
 struct OrbView: View {
     @ObservedObject var voice: VoiceSession
+    @ObservedObject var controller: OrbWindowController
+    @ObservedObject var appState: AppState
     var onTap: () -> Void
     var onOpenConversation: () -> Void
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @FocusState private var typeFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 12) {
+            if let exchange = appState.lastExchange {
+                AnswerCard(exchange: exchange, onOpenConversation: onOpenConversation)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            Spacer(minLength: 0)
             orb
             caption
-            transcript
+            input
         }
         .padding(20)
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8),
+                   value: appState.lastExchange?.answer != nil)
+        .onChange(of: controller.typeMode) { _, mode in
+            typeFieldFocused = mode
+        }
     }
 
     // MARK: - Orb
 
     private var orb: some View {
-        Button(action: onTap) {
-            ZStack {
-                Circle()
-                    .fill(.ultraThickMaterial)
-                    .frame(width: 92, height: 92)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(.white.opacity(state == .listening ? 0.9 : 0.25),
-                                          lineWidth: state == .listening ? 2.5 : 1)
-                    )
-                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-
-                Image("XavierMark")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 40, height: 40)
-                    .opacity(0.9)
-
-                WaveformView(state: state, level: voice.audioLevel)
-                    .frame(width: 92, height: 26)
-                    .offset(y: 44)
+        ZStack(alignment: .bottomTrailing) {
+            Button(action: onTap) {
+                SiriOrb(state: state, level: CGFloat(voice.audioLevel),
+                        diameter: 96, reduceMotion: reduceMotion)
+                    .frame(width: 100, height: 100)
             }
-            .frame(width: 96, height: 96)
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibilityLabel)
+
+            if showsTypeButton {
+                Button(action: { controller.enterTypeMode() }) {
+                    Image(systemName: "keyboard")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 26, height: 26)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Type to Xavier")
+                .accessibilityLabel("Type to Xavier")
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-        .scaleEffect(pulse ? 1.04 : 1)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true),
-                   value: pulse)
     }
 
-    private var pulse: Bool {
-        state == .listening || state == .speaking
+    private var showsTypeButton: Bool {
+        switch state {
+        case .idle, .interrupted, .error: !controller.typeMode
+        default: false
+        }
     }
 
     private var state: VoiceSession.State { voice.state }
@@ -66,7 +76,7 @@ struct OrbView: View {
         }
     }
 
-    // MARK: - Caption + transcript
+    // MARK: - Caption + input
 
     private var caption: some View {
         Text(captionText)
@@ -76,6 +86,7 @@ struct OrbView: View {
     }
 
     private var captionText: String {
+        if controller.typeMode { return "Type to Xavier — ⏎ sends, Esc closes" }
         switch state {
         case .idle: return "Say “Hey Xavier”"
         case .listening: return "Listening…"
@@ -88,19 +99,32 @@ struct OrbView: View {
     }
 
     @ViewBuilder
-    private var transcript: some View {
-        let text = voice.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !text.isEmpty {
-            Text(text)
+    private var input: some View {
+        if controller.typeMode {
+            TextField("Ask Xavier anything", text: $controller.typeText)
+                .textFieldStyle(.plain)
                 .font(.callout)
-                .lineLimit(3)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 260)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.thinMaterial, in: Capsule())
-                .onTapGesture(perform: onOpenConversation)
-                .accessibilityHint("Opens the conversation")
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(.regularMaterial, in: Capsule())
+                .frame(maxWidth: 280)
+                .focused($typeFieldFocused)
+                .onSubmit { controller.submitType() }
+        } else {
+            let text = voice.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                Text(text)
+                    .font(.callout)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 260)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial, in: Capsule())
+                    .onTapGesture(perform: onOpenConversation)
+                    .accessibilityHint("Opens the conversation")
+            }
         }
     }
 }
