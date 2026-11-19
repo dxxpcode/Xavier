@@ -124,6 +124,7 @@ final class FloatingWindowController {
     }
 
     private func startOutsideMonitors() {
+        stopOutsideMonitors()
         clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in
                 guard let self, let panel = self.panel, panel.isVisible else { return }
