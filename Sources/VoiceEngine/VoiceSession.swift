@@ -24,6 +24,7 @@ final class VoiceSession: NSObject, ObservableObject {
     private let audioEngine = AVAudioEngine()
     private var tapInstalled = false
     private var awaitingFinalResult = false
+    private var finishGeneration = 0
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
@@ -176,11 +177,12 @@ final class VoiceSession: NSObject, ObservableObject {
         guard case .listening = state else { return }
         state = .transcribing
         awaitingFinalResult = true
+        let generation = finishGeneration
         stopAudioInput()
         // Fallback: if no final result arrives, submit the last partial text.
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))
-            guard let self, self.awaitingFinalResult else { return }
+            guard let self, self.awaitingFinalResult, self.finishGeneration == generation else { return }
             self.deliverTranscript()
         }
     }
@@ -220,6 +222,7 @@ final class VoiceSession: NSObject, ObservableObject {
 
     private func stopCapture() {
         awaitingFinalResult = false
+        finishGeneration += 1
         stopAudioInput()
         recognitionTask?.cancel()
         recognitionTask = nil
