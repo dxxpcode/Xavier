@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
 
     private(set) var floatingWindow: FloatingWindowController!
+    private var orb: OrbWindowController!
     private var menuBar: MenuBarController!
     private var onboarding = OnboardingWindowController()
     private let preferences = PreferencesWindowController()
@@ -17,14 +18,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appState.start()
 
         floatingWindow = FloatingWindowController(appState: appState)
+        orb = OrbWindowController(appState: appState)
+        orb.setOpenConversationHandler { [weak self] in self?.floatingWindow.show() }
         menuBar = MenuBarController(appState: appState)
         wireMenuBar()
         registerHotkey()
         registerLocalShortcuts()
 
         appState.voiceSession.onWakeWord = { [weak self] in
-            self?.floatingWindow.show()
-            self?.floatingWindow.noteUserActivity()
+            self?.orb.show()
         }
         appState.voiceSession.refreshPermissionStatus()
         if !appState.settings.hasCompletedOnboarding {
@@ -44,8 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func wireMenuBar() {
         menuBar.onOpen = { [weak self] in self?.floatingWindow.toggle() }
         menuBar.onVoice = { [weak self] in
-            self?.floatingWindow.show()
-            self?.appState.voiceSession.startListening()
+            self?.orb.summon()
         }
         menuBar.onNewConversation = { [weak self] in
             self?.appState.orchestrator.newConversation()
@@ -70,8 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKeyManager.shared.register(keyCode: settings.hotkeyKeyCode,
                                       modifiers: settings.hotkeyModifiers)
         HotKeyManager.shared.onPress = { [weak self] in
-            self?.floatingWindow.toggle()
-            self?.floatingWindow.noteUserActivity()
+            self?.orb.toggle()
         }
     }
 

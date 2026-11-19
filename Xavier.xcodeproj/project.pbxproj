@@ -23,6 +23,7 @@
 		6D22E66B421666ED64C324F3 /* XavierLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68BA11F860AE7D65739A432 /* XavierLog.swift */; };
 		70D46553B59031AFEE4DEA03 /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA6F7DEE0B15504F9848EEE /* MemoryStore.swift */; };
 		727D5C5B50BA5563DEC9E36F /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F773C7E3026E649D4D7E73 /* AppState.swift */; };
+		79ECAD0AD46013944B021B9D /* OrbWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D825977D0311A0BC10A40D3 /* OrbWindowController.swift */; };
 		80C59AACF0F5FAB9A2441932 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27937F9FA5C6B10654EA3191 /* PreferencesWindowController.swift */; };
 		8F0D4D84CA0EDF500A3995FD /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4404F3C0A61EC807DF55EFE6 /* OnboardingWindowController.swift */; };
 		92B7616136EC05FF895116D9 /* VoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0E11C69C6B37BFE98D3811 /* VoiceSession.swift */; };
@@ -33,6 +34,7 @@
 		C52FFEC003EFAA36E37F018C /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7333EF3DC0A35C0926E514FF /* Database.swift */; };
 		CFE47FAA3A23B04C6BAD4139 /* ShortcutRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6396D4FED471F37110E427C /* ShortcutRecorderView.swift */; };
 		D387F45EBAFAC4CED6A840C6 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 853261D543C212E001DC3ED3 /* ConversationView.swift */; };
+		D400AD18FEF90F99B4BC37BD /* OrbView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5BA631D22F7FE56A903053 /* OrbView.swift */; };
 		D5218FD9A75AA4E2B4545EE9 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFB2FD5857CEFB23CB06774 /* KeychainStore.swift */; };
 		EFAD9C2AE2B1BB921D32C0A3 /* ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F64DB14CB446E10A1853904F /* ModelManager.swift */; };
 		F436D49EF7D226EEFE4C4492 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66453A362E4BBE1681D9EC46 /* MenuBarController.swift */; };
@@ -51,6 +53,7 @@
 		30FE62C9C92331602234800C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4404F3C0A61EC807DF55EFE6 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
 		4F6067CDAC873F4AB041DE74 /* MessageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageViews.swift; sourceTree = "<group>"; };
+		5D825977D0311A0BC10A40D3 /* OrbWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbWindowController.swift; sourceTree = "<group>"; };
 		66453A362E4BBE1681D9EC46 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		710829E1B13010234B482E1F /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		7333EF3DC0A35C0926E514FF /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
@@ -71,6 +74,7 @@
 		F632D0B5ED934E134399A627 /* InferenceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceProvider.swift; sourceTree = "<group>"; };
 		F64DB14CB446E10A1853904F /* ModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelManager.swift; sourceTree = "<group>"; };
 		FA9430ADD7534AF5793D7D50 /* FloatingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingWindowController.swift; sourceTree = "<group>"; };
+		FF5BA631D22F7FE56A903053 /* OrbView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -133,6 +137,15 @@
 				FA9430ADD7534AF5793D7D50 /* FloatingWindowController.swift */,
 			);
 			path = FloatingWindow;
+			sourceTree = "<group>";
+		};
+		8505A0C4874F224510AA9E17 /* Orb */ = {
+			isa = PBXGroup;
+			children = (
+				FF5BA631D22F7FE56A903053 /* OrbView.swift */,
+				5D825977D0311A0BC10A40D3 /* OrbWindowController.swift */,
+			);
+			path = Orb;
 			sourceTree = "<group>";
 		};
 		92DA4305C33F19B23E43809F /* Onboarding */ = {
@@ -234,6 +247,7 @@
 				7BADDFE07C16561BE117556D /* FloatingWindow */,
 				7A3D0C12300E06D97BBEBB98 /* MenuBar */,
 				92DA4305C33F19B23E43809F /* Onboarding */,
+				8505A0C4874F224510AA9E17 /* Orb */,
 				21AFE3A81704F4901E44E8DD /* Preferences */,
 			);
 			path = Interface;
@@ -330,6 +344,8 @@
 				9F7AD11F9945C4FD839A1569 /* OllamaProvider.swift in Sources */,
 				3D108A3FA2E549BB5360D4D3 /* OnboardingView.swift in Sources */,
 				8F0D4D84CA0EDF500A3995FD /* OnboardingWindowController.swift in Sources */,
+				D400AD18FEF90F99B4BC37BD /* OrbView.swift in Sources */,
+				79ECAD0AD46013944B021B9D /* OrbWindowController.swift in Sources */,
 				F8F8485B301A638FA35FD1AB /* PreferencesView.swift in Sources */,
 				80C59AACF0F5FAB9A2441932 /* PreferencesWindowController.swift in Sources */,
 				48C0E3134658D30E8B535045 /* SettingsStore.swift in Sources */,
